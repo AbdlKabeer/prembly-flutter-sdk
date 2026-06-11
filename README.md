@@ -1,39 +1,72 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# Prembly Identity KYC Flutter SDK
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/guides/libraries/writing-package-pages).
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-library-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/developing-packages).
--->
-
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+A powerful and seamless Flutter SDK for integrating Prembly's Identity KYC verification into your iOS, Android, and Web applications.
 
 ## Features
+- 🚀 **Cross-Platform**: Works natively on iOS, Android, and Flutter Web.
+- 🔒 **Secure**: Direct integration with Prembly's secure verification infrastructure.
+- ⚡ **Easy to Use**: Launch the KYC flow with just a few lines of code.
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+## Getting Started
 
-## Getting started
+Add the package to your `pubspec.yaml`:
+```yaml
+dependencies:
+  prembly_identity_kyc: ^0.0.1
+```
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+### Platform Configuration
+
+Since the Identity KYC flow requires the user to take a selfie and scan ID documents, you must add camera permissions to your application.
+
+#### iOS
+Add the following keys to your `ios/Runner/Info.plist` file:
+```xml
+<key>NSCameraUsageDescription</key>
+<string>This app requires access to the camera to verify your identity.</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>This app requires access to the microphone for liveness checks.</string>
+```
+
+#### Android
+Add the following permissions to your `android/app/src/main/AndroidManifest.xml` just above the `<application>` tag:
+```xml
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.INTERNET" />
+```
+*Note: Ensure your `minSdkVersion` in `android/app/build.gradle` is at least `19`.*
+
+#### Web
+No extra configuration is required. The browser will automatically request camera permissions from the user when the flow starts.
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
+Import the package and call `PremblyIdentityKyc.verify` passing the necessary options.
 
 ```dart
-const like = 'sample';
+import 'package:prembly_identity_kyc/prembly_identity_kyc.dart';
+
+void startVerification(BuildContext context) {
+  PremblyIdentityKyc.verify(
+    context: context,
+    options: IdentityKycOptions(
+      widgetKey: 'your_widget_key_here',
+      widgetId: 'your_widget_id_here',
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+      phone: '+2348012345678',
+      isTest: true,
+      metadata: {
+        'transaction_id': 'txn_123',
+      },
+      callback: (response) {
+        print('Verification Result: $response');
+      },
+    ),
+  );
+}
 ```
 
 ## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+For more information about Prembly and to get your API keys, visit [prembly.com](https://prembly.com).

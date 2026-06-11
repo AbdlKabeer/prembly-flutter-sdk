@@ -1,7 +1,8 @@
 name: prembly_identity_kyc
-description: "A new Flutter package project."
+description: "A Flutter SDK for Prembly Identity KYC. Seamlessly integrate identity verification into your iOS, Android, and Web applications."
 version: 0.0.1
-homepage:
+repository: https://github.com/AbdlKabeer/prembly-flutter-sdk
+issue_tracker: https://github.com/AbdlKabeer/prembly-flutter-sdk/issues
 
 environment:
   sdk: '>=3.4.3 <4.0.0'
