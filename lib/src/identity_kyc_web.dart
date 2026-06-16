@@ -37,7 +37,7 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
         
       script.onLoad.listen((_) {
         debugPrint('Prembly script loaded, waiting 500ms before launch...');
-        Future.delayed(const Duration(milliseconds: 1000), () {
+        Future.delayed(const Duration(milliseconds: 500), () {
           _launchWidget();
         });
       });
