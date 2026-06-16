@@ -1,6 +1,6 @@
 name: prembly_identity_kyc
 description: "A Flutter SDK for Prembly Identity KYC. Seamlessly integrate identity verification into your iOS, Android, and Web applications."
-version: 0.0.1
+version: 0.0.2
 repository: https://github.com/AbdlKabeer/prembly-flutter-sdk
 issue_tracker: https://github.com/AbdlKabeer/prembly-flutter-sdk/issues
 
@@ -12,6 +12,8 @@ dependencies:
   flutter:
     sdk: flutter
   webview_flutter: ^4.8.0
+  webview_flutter_android: ^3.16.2
+  webview_flutter_wkwebview: ^3.13.0
   webview_flutter_web: ^0.2.3+4
 
 dev_dependencies:
