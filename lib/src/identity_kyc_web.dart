@@ -17,6 +17,15 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
   bool _isLoading = true;
   html.EventListener? _listener;
 
+  bool _hasCalledBack = false;
+
+  void _triggerCallback(Map<String, dynamic> response) {
+    if (!_hasCalledBack) {
+      _hasCalledBack = true;
+      widget.options.callback(response);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -71,7 +80,7 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
          // Some JS interop environments pass detail as JSON string
          final detailStr = ce.detail.toString();
          final map = jsonDecode(detailStr);
-         widget.options.callback(map);
+         _triggerCallback(map);
          if (mounted && Navigator.canPop(context)) {
             Navigator.pop(context);
          }
@@ -90,10 +99,29 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
       ..text = '''
       (function() {
          var opts = $optionsJson;
-         opts.callback = function(res) {
-           var ev = new CustomEvent('prembly_kyc_callback', { detail: JSON.stringify(res) });
-           window.dispatchEvent(ev);
-         };
+         if (${widget.options.callback != null}) {
+            opts.callback = function(res) {
+              var ev = new CustomEvent('prembly_kyc_callback', { detail: JSON.stringify(res) });
+              window.dispatchEvent(ev);
+            };
+         }
+
+         // Fallback interval to detect if the widget closes itself without emitting an event
+         var checkInterval = setInterval(function() {
+            var iframe = document.getElementById('identity-frame-component');
+            var container = document.getElementById('identity-frame-container');
+            var isHidden = iframe && (iframe.style.display === 'none' || iframe.style.visibility === 'hidden');
+            
+            // We only care if the iframe was actually created and then removed/hidden
+            if (window._premblyIframeSeen && ((!container && !iframe) || isHidden)) {
+               clearInterval(checkInterval);
+               if (typeof opts.callback === 'function') {
+                  opts.callback({ status: "cancelled", message: "Verification closed" });
+               }
+            } else if (iframe && !isHidden) {
+               window._premblyIframeSeen = true;
+            }
+         }, 1000);
          
          // Clean up any existing widget DOM elements before launching again
          var existingWidget = document.getElementById('identity-pay-kyc-widget') || document.querySelector('.identity-pay-kyc-widget-container');
@@ -105,6 +133,7 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
          console.log("Flutter: Checking window.IdentityKYC...", window.IdentityKYC);
          if (window.IdentityKYC && typeof window.IdentityKYC.verify === 'function') {
            console.log("Flutter: Calling IdentityKYC.verify() with options:", opts);
+           console.log("Flutter: typeof opts.callback is", typeof opts.callback);
            window.IdentityKYC.verify(opts);
          } else {
            console.error("Flutter: IdentityKYC script not loaded properly! window.IdentityKYC is: ", window.IdentityKYC);
@@ -136,19 +165,28 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Identity Verification'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.pop(context),
+    return WillPopScope(
+      onWillPop: () async {
+        _triggerCallback({"status": "cancelled", "message": "User closed the verification window"});
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: const Text('Identity Verification'),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              _triggerCallback({"status": "cancelled", "message": "User closed the verification window"});
+              Navigator.pop(context);
+            },
+          ),
         ),
-      ),
-      body: Center(
-        child: _isLoading 
-            ? const CircularProgressIndicator() 
-            : const Text('Please complete the verification process in the dialog overlay...'),
+        body: Center(
+          child: _isLoading 
+              ? const CircularProgressIndicator() 
+              : const Text('Please complete the verification process in the dialog overlay...'),
+        ),
       ),
     );
   }

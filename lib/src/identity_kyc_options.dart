@@ -8,7 +8,7 @@ class IdentityKycOptions {
   final String? userRef;
   final bool? isTest;
   final Map<String, dynamic>? metadata;
-  final void Function(Map<String, dynamic> response) callback;
+  final void Function(Map<String, dynamic> response)? callback;
 
   IdentityKycOptions({
     required this.firstName,
@@ -16,7 +16,7 @@ class IdentityKycOptions {
     required this.email,
     required this.widgetKey,
     required this.widgetId,
-    required this.callback,
+    this.callback,
     this.phone,
     this.userRef,
     this.isTest,

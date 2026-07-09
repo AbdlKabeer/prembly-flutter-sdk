@@ -17,6 +17,15 @@ class IdentityKycWebView extends StatefulWidget {
 class _IdentityKycWebViewState extends State<IdentityKycWebView> {
   late final WebViewController _controller;
 
+  bool _hasCalledBack = false;
+
+  void _triggerCallback(Map<String, dynamic> response) {
+    if (!_hasCalledBack && widget.options.callback != null) {
+      _hasCalledBack = true;
+      widget.options.callback!(response);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -42,7 +51,7 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
         onMessageReceived: (JavaScriptMessage message) {
           try {
             final Map<String, dynamic> response = jsonDecode(message.message);
-            widget.options.callback(response);
+            _triggerCallback(response);
             if (mounted && Navigator.canPop(context)) {
               Navigator.pop(context);
             }
@@ -90,10 +99,27 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
         function invokeKYC() {
           const options = $optionsJson;
           
-          // Attach the callback via JS
-          options.callback = function(response) {
-             FlutterChannel.postMessage(JSON.stringify(response));
-          };
+          if (${widget.options.callback != null}) {
+             options.callback = function(response) {
+                FlutterChannel.postMessage(JSON.stringify(response));
+             };
+          }
+          
+          // Fallback interval to detect if the widget closes itself without emitting an event
+          var checkInterval = setInterval(function() {
+             var iframe = document.getElementById('identity-frame-component');
+             var container = document.getElementById('identity-frame-container');
+             var isHidden = iframe && (iframe.style.display === 'none' || iframe.style.visibility === 'hidden');
+             
+             if (window._premblyIframeSeen && ((!container && !iframe) || isHidden)) {
+                clearInterval(checkInterval);
+                if (typeof options.callback === 'function') {
+                   options.callback({ status: "cancelled", message: "Verification closed" });
+                }
+             } else if (iframe && !isHidden) {
+                window._premblyIframeSeen = true;
+             }
+          }, 1000);
           
           // Verify
           if (window.IdentityKYC && typeof window.IdentityKYC.verify === 'function') {
@@ -115,17 +141,26 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Identity Verification'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.pop(context),
+    return WillPopScope(
+      onWillPop: () async {
+        _triggerCallback({"status": "cancelled", "message": "User closed the verification window"});
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: const Text('Identity Verification'),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              _triggerCallback({"status": "cancelled", "message": "User closed the verification window"});
+              Navigator.pop(context);
+            },
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: WebViewWidget(controller: _controller),
+        body: SafeArea(
+          child: WebViewWidget(controller: _controller),
+        ),
       ),
     );
   }
