@@ -1,3 +1,7 @@
+## 0.0.4
+
+* Fixed an issue where Android WebViews were not correctly handling the camera permission request, which was causing the camera to not open even after system-level permission was granted.
+
 ## 0.0.3
 
 * Made `callback` parameter optional in `IdentityKycOptions`.
