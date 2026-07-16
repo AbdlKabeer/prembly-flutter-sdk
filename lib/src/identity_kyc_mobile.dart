@@ -41,7 +41,12 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     }
 
     final WebViewController controller =
-        WebViewController.fromPlatformCreationParams(params);
+        WebViewController.fromPlatformCreationParams(
+      params,
+      onPermissionRequest: (WebViewPermissionRequest request) {
+        request.grant();
+      },
+    );
 
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -66,12 +71,6 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
       AndroidWebViewController.enableDebugging(true);
       (controller.platform as AndroidWebViewController)
           .setMediaPlaybackRequiresUserGesture(false);
-      (controller.platform as AndroidWebViewController)
-          .setOnPlatformPermissionRequest(
-        (PlatformWebViewPermissionRequest request) {
-          request.grant();
-        },
-      );
     }
 
     _controller = controller;

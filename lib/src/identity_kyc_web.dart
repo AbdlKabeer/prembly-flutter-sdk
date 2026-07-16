@@ -20,9 +20,9 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
   bool _hasCalledBack = false;
 
   void _triggerCallback(Map<String, dynamic> response) {
-    if (!_hasCalledBack) {
+    if (!_hasCalledBack && widget.options.callback != null) {
       _hasCalledBack = true;
-      widget.options.callback(response);
+      widget.options.callback!(response);
     }
   }
 
