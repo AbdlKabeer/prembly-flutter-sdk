@@ -12,7 +12,7 @@ A powerful and seamless Flutter SDK for integrating Prembly's Identity KYC verif
 Add the package to your `pubspec.yaml`:
 ```yaml
 dependencies:
-  prembly_identity_kyc: ^0.0.1
+  prembly_identity_kyc: ^0.0.5
 ```
 
 ### Platform Configuration
@@ -62,11 +62,19 @@ void startVerification(BuildContext context) {
       },
       callback: (response) {
         print('Verification Result: $response');
+        // Typical statuses (same as React Native SDK):
+        // success | closed | error | api_error | network_error | error_display_closed
       },
     ),
   );
 }
 ```
+
+### Staying in-app (callback vs redirect)
+
+There is no special redirect URL that keeps KYC inside a mobile app. Use the `callback` option instead — the same approach as the [React Native SDK](https://github.com/AbdlKabeer/prembly-react-native-identity-kyc).
+
+The Flutter SDK initiates a session, loads the widget in an in-app WebView, and forwards widget `postMessage` events to your `callback`. Dashboard redirect URLs are for browser flows and are intercepted on mobile so they do not take users out of the app.
 
 ## Additional information
 For more information about Prembly and to get your API keys, visit [prembly.com](https://prembly.com).
