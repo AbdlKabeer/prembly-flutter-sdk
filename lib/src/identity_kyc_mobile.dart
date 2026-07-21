@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
@@ -29,18 +30,21 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
   bool _isLoading = true;
   String? _error;
 
-  // Mirrors RN injectedJavaScript message bridge
+  // Mirrors RN injectedJavaScript message bridge, but only forwards KYC events
   static const _messageBridgeJs = '''
     (function() {
       if (window._premblyFlutterBridgeInstalled) return;
       window._premblyFlutterBridgeInstalled = true;
       window.addEventListener("message", function(event) {
         try {
-          var payload = event.data;
-          if (typeof payload !== "string") {
-            payload = JSON.stringify(payload);
+          var data = event.data;
+          if (typeof data === "string") {
+            try { data = JSON.parse(data); } catch (e) { return; }
           }
-          FlutterChannel.postMessage(payload);
+          if (!data || typeof data !== "object") return;
+          var eventName = data.event || data.status;
+          if (!eventName) return;
+          FlutterChannel.postMessage(JSON.stringify(data));
         } catch (e) {}
       }, false);
     })();
@@ -65,6 +69,31 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     _initializePremblyWidget();
   }
 
+  Future<bool> _ensureMediaPermissions() async {
+    final statuses = await [
+      Permission.camera,
+      Permission.microphone,
+    ].request();
+
+    final cameraGranted = statuses[Permission.camera]?.isGranted ?? false;
+    final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+
+    if (cameraGranted) {
+      return true;
+    }
+
+    // Mic is preferred for liveness, but camera is required to proceed.
+    if (statuses[Permission.camera]?.isPermanentlyDenied ?? false) {
+      throw Exception(
+        'Camera permission is required for verification. Enable it in Settings.',
+      );
+    }
+
+    throw Exception(
+      'Camera permission is required for verification.${micGranted ? '' : ' Microphone permission is also recommended.'}',
+    );
+  }
+
   Future<void> _initializePremblyWidget() async {
     setState(() {
       _isLoading = true;
@@ -74,18 +103,23 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     });
 
     try {
+      await _ensureMediaPermissions();
       final sessionId = await _initiateSession();
       if (!mounted) return;
-      _setupWebView(sessionId);
+      await _setupWebView(sessionId);
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       final message = e.toString().replaceFirst('Exception: ', '');
-      final status = message.startsWith('Network error')
-          ? 'network_error'
-          : 'api_error';
+      String status = 'api_error';
+      if (message.startsWith('Network error')) {
+        status = 'network_error';
+      } else if (message.toLowerCase().contains('camera permission')) {
+        status = 'error';
+      }
       setState(() {
         _isLoading = false;
         _error = message;
@@ -117,20 +151,25 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     final client = HttpClient();
     try {
       final request = await client.postUrl(Uri.parse(_sessionInitiateUrl));
+      final payload = utf8.encode(body);
+
+      // Explicit length + bytes so the server receives the JSON body
+      // (string write alone can arrive empty on some platforms).
       request.headers.set(HttpHeaders.acceptHeader, '*/*');
-      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-      request.write(body);
+      request.headers.set(
+        HttpHeaders.contentTypeHeader,
+        'application/json; charset=utf-8',
+      );
+      request.contentLength = payload.length;
+      request.add(payload);
 
       final response = await request.close();
       final responseBody = await response.transform(utf8.decoder).join();
+      final decoded = jsonDecode(responseBody) as Map<String, dynamic>;
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(
-          'API call failed with status: ${response.statusCode}. Response: $responseBody',
-        );
+        throw Exception(_formatApiError(response.statusCode, decoded, responseBody));
       }
-
-      final decoded = jsonDecode(responseBody) as Map<String, dynamic>;
 
       // RN: responseData.data.session.session_id
       final sessionId = decoded['data']?['session']?['session_id'] ??
@@ -156,22 +195,35 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     }
   }
 
+  String _formatApiError(
+    int statusCode,
+    Map<String, dynamic> decoded,
+    String raw,
+  ) {
+    final message = decoded['message']?.toString();
+    final errors = decoded['errors'];
+    if (errors is Map && errors.isNotEmpty) {
+      final details = errors.entries.map((entry) {
+        final value = entry.value;
+        final text = value is List ? value.join(', ') : value.toString();
+        return '${entry.key}: $text';
+      }).join('; ');
+      return 'API call failed with status: $statusCode. ${message ?? ''} $details'
+          .trim();
+    }
+    return 'API call failed with status: $statusCode. ${message ?? raw}';
+  }
+
   /// Matches PremblyIdentityWidget handleMessage event mapping.
   void _handleMessage(String raw) {
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! Map) {
-        _closeWithResponse({'status': 'unknown_payload', 'data': decoded});
-        return;
-      }
+      if (decoded is! Map) return;
 
       final data = Map<String, dynamic>.from(decoded);
       final eventName = (data['event'] ?? data['status'])?.toString();
 
-      if (eventName == null || eventName.isEmpty) {
-        _closeWithResponse({'status': 'unknown_payload', 'data': data});
-        return;
-      }
+      if (eventName == null || eventName.isEmpty) return;
 
       switch (eventName) {
         case 'closed':
@@ -188,20 +240,17 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
           _closeWithResponse({'status': 'success', 'data': data});
           break;
         default:
+          // Forward unknown KYC events without closing the flow early.
           debugPrint('Received unknown event from WebView: $eventName');
-          _closeWithResponse({'status': eventName, 'data': data});
+          widget.options.callback?.call({'status': eventName, 'data': data});
           break;
       }
     } catch (e) {
       debugPrint('Error decoding JSON from WebView: $e');
-      _closeWithResponse({
-        'status': 'error',
-        'message': 'Failed to process message from WebView: $e',
-      });
     }
   }
 
-  void _setupWebView(String sessionId) {
+  Future<void> _setupWebView(String sessionId) async {
     late final PlatformWebViewControllerCreationParams params;
     if (WebViewPlatform.instance is WebKitWebViewPlatform) {
       params = WebKitWebViewControllerCreationParams(
@@ -215,6 +264,7 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     final controller = WebViewController.fromPlatformCreationParams(
       params,
       onPermissionRequest: (WebViewPermissionRequest request) {
+        // Grant camera/mic requests coming from the hosted KYC page.
         request.grant();
       },
     );
@@ -224,51 +274,68 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
       'https://sdk-live.prembly.com/?session=$sessionId',
     );
 
-    controller
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (url) {
-            controller.runJavaScript(_messageBridgeJs);
-          },
-          onNavigationRequest: (NavigationRequest request) {
-            final uri = Uri.tryParse(request.url);
-            final host = uri?.host.toLowerCase() ?? '';
-            final isPrembly = host.endsWith('prembly.com') ||
-                host.endsWith('identitypass.com') ||
-                host.endsWith('cloudfront.net') ||
-                request.url == 'about:blank' ||
-                request.url.startsWith('blob:');
+    await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    await controller.setBackgroundColor(const Color(0x00000000));
+    await controller.setNavigationDelegate(
+      NavigationDelegate(
+        onPageFinished: (url) {
+          controller.runJavaScript(_messageBridgeJs);
+        },
+        onNavigationRequest: (NavigationRequest request) {
+          final url = request.url;
+          final uri = Uri.tryParse(url);
+          final scheme = uri?.scheme.toLowerCase() ?? '';
+          final host = uri?.host.toLowerCase() ?? '';
 
-            if (isPrembly) {
-              return NavigationDecision.navigate;
-            }
+          // Allow WebView internals and Prembly hosts. Do NOT treat
+          // about:srcdoc / about:blank as completion redirects.
+          final isInternal = scheme.isEmpty ||
+              scheme == 'about' ||
+              scheme == 'blob' ||
+              scheme == 'data' ||
+              url.startsWith('about:') ||
+              url.startsWith('blob:');
+          final isPrembly = host.endsWith('prembly.com') ||
+              host.endsWith('identitypass.com') ||
+              host.endsWith('cloudfront.net');
 
-            // Keep completion in-app via callback instead of following dashboard redirect.
-            debugPrint('Intercepted KYC redirect: ${request.url}');
+          if (isInternal || isPrembly) {
+            return NavigationDecision.navigate;
+          }
+
+          // Only intercept real http(s) navigations away from Prembly.
+          if (scheme == 'http' || scheme == 'https') {
+            debugPrint('Intercepted KYC redirect: $url');
             _closeWithResponse({
               'status': 'success',
-              'data': {'redirect_url': request.url},
+              'data': {'redirect_url': url},
             });
             return NavigationDecision.prevent;
-          },
-        ),
-      )
-      ..addJavaScriptChannel(
-        'FlutterChannel',
-        onMessageReceived: (JavaScriptMessage message) {
-          _handleMessage(message.message);
+          }
+
+          return NavigationDecision.navigate;
         },
-      )
-      ..loadRequest(widgetUrl);
+      ),
+    );
+    await controller.addJavaScriptChannel(
+      'FlutterChannel',
+      onMessageReceived: (JavaScriptMessage message) {
+        _handleMessage(message.message);
+      },
+    );
 
     if (controller.platform is AndroidWebViewController) {
+      final androidController = controller.platform as AndroidWebViewController;
       AndroidWebViewController.enableDebugging(true);
-      (controller.platform as AndroidWebViewController)
-          .setMediaPlaybackRequiresUserGesture(false);
+      await androidController.setMediaPlaybackRequiresUserGesture(false);
+      await androidController.setOnPlatformPermissionRequest(
+        (PlatformWebViewPermissionRequest request) {
+          request.grant();
+        },
+      );
     }
 
+    await controller.loadRequest(widgetUrl);
     _controller = controller;
   }
 
@@ -310,6 +377,7 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     }
 
     if (_error != null) {
+      final isCameraError = _error!.toLowerCase().contains('camera permission');
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -326,6 +394,11 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
                 onPressed: _initializePremblyWidget,
                 child: const Text('Retry'),
               ),
+              if (isCameraError)
+                TextButton(
+                  onPressed: openAppSettings,
+                  child: const Text('Open Settings'),
+                ),
               TextButton(
                 onPressed: () {
                   _closeWithResponse({'status': 'error_display_closed'});

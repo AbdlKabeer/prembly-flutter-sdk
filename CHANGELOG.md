@@ -4,6 +4,7 @@
 * Mobile initiates sessions via `api.prembly.com`, loads `sdk-live.prembly.com/?session=...`, and bridges WebView `postMessage` events into `callback`.
 * Callback statuses aligned with RN: `success`, `closed`, `error`, `api_error`, `network_error`, `error_display_closed`.
 * Intercept dashboard redirect navigations so completion stays in-app.
+* Request camera/microphone permissions before loading the WebView so KYC camera init does not hang.
 * Web always attaches a JS callback bridge so the hosted widget prefers callback over redirect.
 
 ## 0.0.4
