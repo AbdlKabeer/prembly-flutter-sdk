@@ -20,9 +20,28 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
   bool _hasCalledBack = false;
 
   void _triggerCallback(Map<String, dynamic> response) {
-    if (!_hasCalledBack && widget.options.callback != null) {
-      _hasCalledBack = true;
-      widget.options.callback!(response);
+    if (_hasCalledBack) return;
+    _hasCalledBack = true;
+    widget.options.callback?.call(response);
+  }
+
+  Map<String, dynamic> _normalizeResponse(Map<String, dynamic> payload) {
+    // Match PremblyIdentityWidget: event name may be in `event` or `status`
+    final eventName = (payload['event'] ?? payload['status'])?.toString();
+    if (eventName == null || eventName.isEmpty) {
+      return {'status': 'unknown_payload', 'data': payload};
+    }
+
+    switch (eventName) {
+      case 'closed':
+        return {'status': 'closed'};
+      case 'error':
+        return {'status': 'error', 'message': payload['message']};
+      case 'verified':
+      case 'success':
+        return {'status': 'success', 'data': payload};
+      default:
+        return {'status': eventName, 'data': payload};
     }
   }
 
@@ -79,7 +98,9 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
        try {
          // Some JS interop environments pass detail as JSON string
          final detailStr = ce.detail.toString();
-         final map = jsonDecode(detailStr);
+         final decoded = jsonDecode(detailStr);
+         if (decoded is! Map) return;
+         final map = _normalizeResponse(Map<String, dynamic>.from(decoded));
          _triggerCallback(map);
          if (mounted && Navigator.canPop(context)) {
             Navigator.pop(context);
@@ -99,12 +120,27 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
       ..text = '''
       (function() {
          var opts = $optionsJson;
-         if (${widget.options.callback != null}) {
-            opts.callback = function(res) {
-              var ev = new CustomEvent('prembly_kyc_callback', { detail: JSON.stringify(res) });
-              window.dispatchEvent(ev);
-            };
-         }
+
+         // Always attach a JS callback so the hosted widget sets has_callback=true
+         // and prefers postMessage over the dashboard redirect URL.
+         opts.callback = function(res) {
+           var ev = new CustomEvent('prembly_kyc_callback', { detail: JSON.stringify(res) });
+           window.dispatchEvent(ev);
+         };
+
+         // Bridge React Native-compatible widget messages as well.
+         window.addEventListener('message', function(event) {
+           var data = event.data;
+           try {
+             if (typeof data === 'string') {
+               data = JSON.parse(data);
+             }
+           } catch (e) { return; }
+           if (!data || typeof data !== 'object') return;
+           if (data.source === 'prembly-verification') {
+             opts.callback(data);
+           }
+         });
 
          // Fallback interval to detect if the widget closes itself without emitting an event
          var checkInterval = setInterval(function() {
@@ -115,9 +151,7 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
             // We only care if the iframe was actually created and then removed/hidden
             if (window._premblyIframeSeen && ((!container && !iframe) || isHidden)) {
                clearInterval(checkInterval);
-               if (typeof opts.callback === 'function') {
-                  opts.callback({ status: "cancelled", message: "Verification closed" });
-               }
+               opts.callback({ status: "cancelled", message: "Verification closed" });
             } else if (iframe && !isHidden) {
                window._premblyIframeSeen = true;
             }
