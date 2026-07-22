@@ -1,3 +1,12 @@
+## 0.0.5
+
+* Keep KYC completion in-app via callback handling, matching [prembly-react-native-identity-kyc](https://github.com/AbdlKabeer/prembly-react-native-identity-kyc).
+* Mobile initiates sessions via `api.prembly.com`, loads `sdk-live.prembly.com/?session=...`, and bridges WebView `postMessage` events into `callback`.
+* Callback statuses aligned with RN: `success`, `closed`, `error`, `api_error`, `network_error`, `error_display_closed`.
+* Intercept dashboard redirect navigations so completion stays in-app.
+* Request camera/microphone permissions before loading the WebView so KYC camera init does not hang.
+* Web always attaches a JS callback bridge so the hosted widget prefers callback over redirect.
+
 ## 0.0.4
 
 * Fixed an issue where Android WebViews were not correctly handling the camera permission request, which was causing the camera to not open even after system-level permission was granted.
