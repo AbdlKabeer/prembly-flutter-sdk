@@ -1,3 +1,7 @@
+## 0.0.6
+
+* Allow `permission_handler` 11.x–13.x so apps already on newer versions can resolve `prembly_identity_kyc`.
+
 ## 0.0.5
 
 * Keep KYC completion in-app via callback handling, matching [prembly-react-native-identity-kyc](https://github.com/AbdlKabeer/prembly-react-native-identity-kyc).
