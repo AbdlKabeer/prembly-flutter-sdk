@@ -11,6 +11,7 @@
 migrate_working_dir/
 
 # IntelliJ related
+temp_auto_push.bat
 *.iml
 *.ipr
 *.iws
@@ -25,3 +26,5 @@ migrate_working_dir/
 **/doc/api/
 .dart_tool/
 build/
+.gitignore
+branch_structure.json
