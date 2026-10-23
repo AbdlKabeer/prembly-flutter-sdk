@@ -8,6 +8,9 @@ import 'src/identity_kyc_stub.dart'
     if (dart.library.html) 'src/identity_kyc_web.dart';
 
 export 'src/identity_kyc_options.dart';
+export 'src/prembly_tm.dart'
+    show PremblyTM, PremblyTMClient, DeviceSession, SessionError;
+export 'src/native_device.dart' show premblySdkVersion;
 
 class PremblyIdentityKyc {
   /// Launches the Identity KYC flow in a full screen dialog/route.
