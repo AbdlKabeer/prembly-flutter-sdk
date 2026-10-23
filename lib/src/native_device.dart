@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Sent as `X-SDK-Version`. Kept equal to pubspec.yaml by a test.
-const String premblySdkVersion = '0.1.0';
+const String premblySdkVersion = '0.1.1';
 
 /// The only origin the widget hands the device data to.
 const String premblyWidgetOrigin = 'https://sdk-live.prembly.com';
@@ -142,11 +142,12 @@ String premblySafeJson(Object? value) => jsonEncode(value)
     .replaceAll('\u2029', r'\u2029');
 
 /// The script the WebView runs to hand the device data to the widget page. It sets the data only
-/// when the page is the Prembly widget, so a page the widget navigates to never receives it.
-String buildNativeDeviceScript(NativeDeviceData data) {
+/// when the page's origin is exactly [origin] (the Prembly widget by default), so a page the widget
+/// navigates to never receives it.
+String buildNativeDeviceScript(NativeDeviceData data, {String origin = premblyWidgetOrigin}) {
   return '''(function () {
   try {
-    if (window.location.origin === ${premblySafeJson(premblyWidgetOrigin)}) {
+    if (window.location.origin === ${premblySafeJson(origin)}) {
       window.__PREMBLY_NATIVE_DEVICE__ = ${premblySafeJson(data.toJson())};
     }
   } catch (e) {}

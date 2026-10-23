@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'prembly_identity_kyc'
-  s.version          = '0.1.0'
+  s.version          = '0.1.1'
   s.summary          = 'Prembly Identity KYC and Transaction Monitoring device signals for Flutter.'
   s.description      = <<-DESC
 Reads the phone's real device ID and device signals for the Prembly Identity KYC widget and

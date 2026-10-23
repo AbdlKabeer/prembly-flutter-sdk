@@ -1,3 +1,8 @@
+## 0.1.1
+
+* New `PremblyWorkflow.start`: runs one of your workflows with your public key, opens it in the app and gives it the phone's real device ID and details (only on the session link's origin). `WorkflowOptions`, `WorkflowCustomer`, `WorkflowResult` and `WorkflowEvent`; optional `metadata`, `redirectUrl`, `baseUrl`, `hostedUrl`, `collectDeviceData`.
+* The camera and microphone are asked for when a workflow step needs them, not before.
+
 ## 0.1.0
 
 * The package now serves both the Identity KYC widget and Transaction Monitoring, and reads the phone's real device ID.
