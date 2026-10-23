@@ -31,10 +31,28 @@ Add the following keys to your `ios/Runner/Info.plist` file:
 <string>This app requires access to the microphone for liveness checks.</string>
 ```
 
+`permission_handler` (which the SDK uses to ask for the camera and microphone) leaves a permission out of the iOS build unless you switch it on. Without this, the camera request is answered "denied" without ever showing a prompt. In `ios/Podfile`, inside `post_install`:
+```ruby
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_MICROPHONE=1',
+      ]
+    end
+  end
+end
+```
+Then run `pod install`. The iOS Simulator has no camera, so the verification flow cannot get past the camera permission there: test on a physical iPhone.
+
 #### Android
 Add the following permissions to your `android/app/src/main/AndroidManifest.xml` just above the `<application>` tag:
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 *Note: Ensure your `minSdkVersion` in `android/app/build.gradle` is at least `19`.*

@@ -16,7 +16,26 @@ import 'screen_watch.dart';
 class IdentityKycWebView extends StatefulWidget {
   final IdentityKycOptions options;
 
-  const IdentityKycWebView({Key? key, required this.options}) : super(key: key);
+  /// Creates the verification session and returns its ID. Tests replace it; the default calls the
+  /// Prembly API.
+  @visibleForTesting
+  final Future<String> Function(IdentityKycOptions options)? sessionInitiator;
+
+  /// Asks for the camera and microphone. Tests replace it; the default asks the system.
+  @visibleForTesting
+  final Future<void> Function()? permissionRequester;
+
+  /// How often the screen-recording flag is read while the widget is open.
+  @visibleForTesting
+  final Duration screenWatchEvery;
+
+  const IdentityKycWebView({
+    Key? key,
+    required this.options,
+    this.sessionInitiator,
+    this.permissionRequester,
+    this.screenWatchEvery = screenWatchInterval,
+  }) : super(key: key);
 
   @override
   State<IdentityKycWebView> createState() => _IdentityKycWebViewState();
@@ -100,6 +119,7 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     final alreadySeen = scam is Map && scam['is_screen_shared_or_recorded'] == true;
     _stopScreenWatch = startScreenWatch(
       (state) => controller.runJavaScript(buildScreenUpdateScript(state)),
+      interval: widget.screenWatchEvery,
       alreadySeen: alreadySeen,
     );
   }
@@ -147,8 +167,9 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
         : Future<NativeDeviceData?>.value(null);
 
     try {
-      await _ensureMediaPermissions();
-      final sessionId = await _initiateSession();
+      await (widget.permissionRequester?.call() ?? _ensureMediaPermissions());
+      final sessionId = await (widget.sessionInitiator?.call(widget.options) ??
+          _initiateSession());
       _nativeDevice = await devicePromise;
       if (!mounted) return;
       await _setupWebView(sessionId);
