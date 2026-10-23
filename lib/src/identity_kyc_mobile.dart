@@ -8,6 +8,8 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import 'identity_kyc_options.dart';
+import 'native_device.dart';
+import 'screen_watch.dart';
 
 /// Mobile KYC flow aligned with
 /// https://github.com/AbdlKabeer/prembly-react-native-identity-kyc
@@ -26,6 +28,10 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
       'https://api.prembly.com/api/v1/checker-widget/sdk/sessions/initiate/';
 
   WebViewController? _controller;
+
+  // What the phone knows about itself, handed to the widget page. Null if it could not be read.
+  NativeDeviceData? _nativeDevice;
+  void Function()? _stopScreenWatch;
   bool _hasCalledBack = false;
   bool _isLoading = true;
   String? _error;
@@ -69,6 +75,35 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     _initializePremblyWidget();
   }
 
+  @override
+  void dispose() {
+    _stopScreenWatch?.call();
+    _stopScreenWatch = null;
+    super.dispose();
+  }
+
+  /// Give the widget page the phone's device data. The page reads it when it needs it (at submit),
+  /// so it is injected as the page starts and again when it has loaded. It does nothing on any
+  /// origin other than the Prembly widget.
+  void _injectNativeDevice(WebViewController controller) {
+    final device = _nativeDevice;
+    if (device == null) return;
+    controller.runJavaScript(buildNativeDeviceScript(device));
+  }
+
+  /// While the widget is open, keep asking the phone whether the screen is being recorded or
+  /// shared and tell the page, including a recording that started and stopped.
+  void _startWatchingScreen(WebViewController controller) {
+    final device = _nativeDevice;
+    if (device == null || _stopScreenWatch != null) return;
+    final scam = device.signals['scam_signals'];
+    final alreadySeen = scam is Map && scam['is_screen_shared_or_recorded'] == true;
+    _stopScreenWatch = startScreenWatch(
+      (state) => controller.runJavaScript(buildScreenUpdateScript(state)),
+      alreadySeen: alreadySeen,
+    );
+  }
+
   Future<bool> _ensureMediaPermissions() async {
     final statuses = await [
       Permission.camera,
@@ -100,11 +135,21 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
       _error = null;
       _hasCalledBack = false;
       _controller = null;
+      _nativeDevice = null;
     });
+    _stopScreenWatch?.call();
+    _stopScreenWatch = null;
+
+    // Read the phone while permissions and the session are being sorted out. It never fails and is
+    // time-limited.
+    final devicePromise = widget.options.collectDeviceData
+        ? collectNativeDevice()
+        : Future<NativeDeviceData?>.value(null);
 
     try {
       await _ensureMediaPermissions();
       final sessionId = await _initiateSession();
+      _nativeDevice = await devicePromise;
       if (!mounted) return;
       await _setupWebView(sessionId);
       if (!mounted) return;
@@ -278,8 +323,13 @@ class _IdentityKycWebViewState extends State<IdentityKycWebView> {
     await controller.setBackgroundColor(const Color(0x00000000));
     await controller.setNavigationDelegate(
       NavigationDelegate(
+        onPageStarted: (url) {
+          _injectNativeDevice(controller);
+        },
         onPageFinished: (url) {
           controller.runJavaScript(_messageBridgeJs);
+          _injectNativeDevice(controller);
+          _startWatchingScreen(controller);
         },
         onNavigationRequest: (NavigationRequest request) {
           final url = request.url;

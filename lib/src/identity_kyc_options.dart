@@ -8,6 +8,13 @@ class IdentityKycOptions {
   final String? userRef;
   final bool? isTest;
   final Map<String, dynamic>? metadata;
+
+  /// Read the phone's own device ID and details and give them to the widget, so the check sees the
+  /// real device and not a guess from the browser. On by default. If the phone cannot be read the
+  /// widget carries on with what the web page can see. No permission is asked for, and location is
+  /// never read. Mobile only; the web build always uses what the browser can see.
+  final bool collectDeviceData;
+
   final void Function(Map<String, dynamic> response)? callback;
 
   IdentityKycOptions({
@@ -21,6 +28,7 @@ class IdentityKycOptions {
     this.userRef,
     this.isTest,
     this.metadata,
+    this.collectDeviceData = true,
   });
 
   Map<String, dynamic> toJson() {
