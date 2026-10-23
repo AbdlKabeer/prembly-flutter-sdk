@@ -15,7 +15,7 @@ One Flutter package for two Prembly products, both reading the phone's real devi
 Add the package to your `pubspec.yaml`:
 ```yaml
 dependencies:
-  prembly_identity_kyc: ^0.1.0
+  prembly_identity_kyc: ^0.1.1
 ```
 
 ### Platform Configuration
@@ -113,6 +113,44 @@ While the verification session is created, the SDK reads the phone and gives the
 There is no special redirect URL that keeps KYC inside a mobile app. Use the `callback` option instead — the same approach as the [React Native SDK](https://github.com/AbdlKabeer/prembly-react-native-identity-kyc).
 
 The Flutter SDK initiates a session, loads the widget in an in-app WebView, and forwards widget `postMessage` events to your `callback`. Dashboard redirect URLs are for browser flows and are intercepted on mobile so they do not take users out of the app.
+
+## Workflow
+
+Starts one of your compliance workflows with your public key, the same session the web SDK creates, and opens it in your app. The phone's real device ID and details go to the workflow before the page loads, so its device checks see the actual device.
+
+```dart
+PremblyWorkflow.start(
+  context: context,
+  options: WorkflowOptions(
+    publishableKey: 'test_pk_...',
+    workflowId: 'wf_123',
+    customer: const WorkflowCustomer(
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+    ),
+    metadata: {'user_id': '123456'},
+    onEvent: (event) => debugPrint(event.type),
+    callback: (result) {
+      // completed | failed | manual_review | expired | cancelled
+      // or failed with result.errorCode if it could not start
+      debugPrint(result.status);
+    },
+  ),
+);
+```
+
+| Option | Required | Description |
+|---|---|---|
+| `publishableKey` | Yes | `live_pk_...` or `test_pk_...`. A secret key is refused |
+| `workflowId` | Yes | The workflow to run |
+| `customer` | Yes | `WorkflowCustomer(firstName, lastName, email, phone?, reference?)` |
+| `callback` | Yes | Called once when the flow ends. `cancelled` carries `lastEvent`; `processing` means the checks carry on in the background |
+| `metadata`, `redirectUrl`, `baseUrl`, `hostedUrl` | No | Extra session data, a redirect, a server override, a hosted app to open instead of the returned link (for testing) |
+| `collectDeviceData` | No | Give the phone's device data to the workflow. **On by default** |
+| `onEvent` | No | `WorkflowEvent(type, sessionId, nodeId?)` for every event. No personal data |
+
+iOS and Android only. On the web the callback gets `failed` with `not_available`. The camera and microphone are asked for only when a step needs them.
 
 ## Transaction Monitoring
 

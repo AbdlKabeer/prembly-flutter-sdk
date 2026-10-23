@@ -34,6 +34,9 @@ class FakeWebViewController extends PlatformWebViewController {
   final List<Uri> loaded = [];
   final List<String> channels = [];
 
+  /// What the page can post to, by channel name, so a test can send the widget a message.
+  final Map<String, void Function(JavaScriptMessage)> channelHandlers = {};
+
   @override
   Future<void> runJavaScript(String javaScript) async => scripts.add(javaScript);
 
@@ -47,8 +50,10 @@ class FakeWebViewController extends PlatformWebViewController {
   Future<void> setBackgroundColor(Color color) async {}
 
   @override
-  Future<void> addJavaScriptChannel(JavaScriptChannelParams javaScriptChannelParams) async =>
-      channels.add(javaScriptChannelParams.name);
+  Future<void> addJavaScriptChannel(JavaScriptChannelParams javaScriptChannelParams) async {
+    channels.add(javaScriptChannelParams.name);
+    channelHandlers[javaScriptChannelParams.name] = javaScriptChannelParams.onMessageReceived;
+  }
 
   @override
   Future<void> setPlatformNavigationDelegate(PlatformNavigationDelegate handler) async {}

@@ -25,3 +25,6 @@ migrate_working_dir/
 **/doc/api/
 .dart_tool/
 build/
+
+# Local workflow test values
+example/lib/workflow_config.local.dart

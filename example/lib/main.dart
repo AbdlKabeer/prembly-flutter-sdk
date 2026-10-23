@@ -8,6 +8,8 @@ import 'package:prembly_identity_kyc/src/native_device.dart';
 import 'package:prembly_identity_kyc/src/screen_watch.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'workflow_config.local.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -69,6 +71,27 @@ class _MyHomePageState extends State<MyHomePage> {
   void Function()? _stopWatch;
   final _keyField = TextEditingController();
   final _idField = TextEditingController();
+
+  void _startWorkflow() {
+    setState(() => _result = '');
+    PremblyWorkflow.start(
+      context: context,
+      options: WorkflowOptions(
+        publishableKey: workflowTestKey,
+        workflowId: workflowTestId,
+        baseUrl: workflowTestBaseUrl,
+        hostedUrl: workflowTestHostedUrl,
+        customer: const WorkflowCustomer(
+          firstName: 'Ada',
+          lastName: 'Obi',
+          email: 'ada.sdktest@example.com',
+        ),
+        metadata: const {'source': 'flutter-sdk-test'},
+        onEvent: (e) => setState(() => _result += 'event: ${e.type}\n'),
+        callback: (r) => setState(() => _result += 'callback: $r\n'),
+      ),
+    );
+  }
 
   void _startVerification() {
     PremblyIdentityKyc.verify(
@@ -172,6 +195,12 @@ class _MyHomePageState extends State<MyHomePage> {
               controller: _idField,
               decoration: const InputDecoration(labelText: 'Widget ID (optional)', isDense: true),
               autocorrect: false,
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              key: const Key('workflow'),
+              onPressed: _startWorkflow,
+              child: const Text('3. Run the workflow (local backend)'),
             ),
             const SizedBox(height: 8),
             OutlinedButton(
