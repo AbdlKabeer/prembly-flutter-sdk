@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>This app uses the camera to verify your identity.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app uses the microphone for liveness checks.</string>
 </dict>
 </plist>
