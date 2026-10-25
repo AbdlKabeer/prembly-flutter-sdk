@@ -13,6 +13,7 @@ migrate_working_dir/
 # IntelliJ related
 *.iml
 *.ipr
+temp_auto_push.bat
 *.iws
 .idea/
 
@@ -28,3 +29,5 @@ build/
 
 # Local workflow test values
 example/lib/workflow_config.local.dart
+.gitignore
+branch_structure.json
