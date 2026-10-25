@@ -105,6 +105,15 @@ void main() {
       expect(script, contains('window.location.origin !== "$premblyWidgetOrigin" || !device'));
     });
 
+    test('acts on the origin it is given, for a local or staging link', () {
+      final script = buildScreenUpdateScript(
+        const ScreenCaptureState(current: true, seen: true),
+        origin: 'http://localhost:3010',
+      );
+      expect(script, contains('window.location.origin !== "http://localhost:3010" || !device'));
+      expect(script, isNot(contains(premblyWidgetOrigin)));
+    });
+
     test('tells the page only when something changed', () {
       final script = buildScreenUpdateScript(const ScreenCaptureState(current: false, seen: true));
       expect(script, contains('if (changed) window.dispatchEvent'));
