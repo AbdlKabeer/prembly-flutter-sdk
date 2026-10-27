@@ -1,6 +1,6 @@
 name: prembly_identity_kyc
 description: "Prembly for Flutter: the Identity KYC widget and Transaction Monitoring device signals, reading the phone's real device ID. iOS, Android and Web."
-version: 0.1.1
+version: 0.1.2
 repository: https://github.com/AbdlKabeer/prembly-flutter-sdk
 issue_tracker: https://github.com/AbdlKabeer/prembly-flutter-sdk/issues
 
