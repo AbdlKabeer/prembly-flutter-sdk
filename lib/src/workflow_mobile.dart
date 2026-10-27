@@ -160,6 +160,13 @@ class _WorkflowWebViewState extends State<WorkflowWebView> {
     final event = parseWorkflowMessage(raw);
     // Only this session's events count; a message about another session is ignored.
     if (event == null || event.sessionId != _session?.sessionId) return;
+    // The person cancelled from the widget's own Cancel button: close the flow the way the app's
+    // close button does. This comes first so `lastEvent` is still what came before the cancel.
+    if (event.type == 'cancelled') {
+      widget.options.onEvent?.call(event);
+      _close();
+      return;
+    }
     _lastEvent = event.type;
     widget.options.onEvent?.call(event);
     if (isWorkflowEndState(event.type)) {
