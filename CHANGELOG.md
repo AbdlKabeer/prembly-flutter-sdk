@@ -1,3 +1,7 @@
+## 0.1.2
+
+* `PremblyWorkflow` now closes the flow when the hosted widget's own Cancel button is used. The widget sends a `cancelled` event; the flow ends with `WorkflowResult(status: 'cancelled', lastEvent: …)`, the same as the app's close button.
+
 ## 0.1.1
 
 * New `PremblyWorkflow.start`: runs one of your workflows with your public key, opens it in the app and gives it the phone's real device ID and details (only on the session link's origin). `WorkflowOptions`, `WorkflowCustomer`, `WorkflowResult` and `WorkflowEvent`; optional `metadata`, `redirectUrl`, `baseUrl`, `hostedUrl`, `collectDeviceData`.

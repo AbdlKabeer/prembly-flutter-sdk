@@ -158,6 +158,13 @@ void main() {
       );
     });
 
+    test('reads the widget\'s cancel, which is not an end state', () {
+      final event = parseWorkflowMessage(jsonEncode(
+          {'source': 'prembly-workflow-sdk', 'type': 'cancelled', 'session_id': 's'}))!;
+      expect([event.type, event.sessionId], ['cancelled', 's']);
+      expect(isWorkflowEndState('cancelled'), isFalse);
+    });
+
     test('knows the end states', () {
       expect(['completed', 'failed', 'manual_review', 'expired'].every(isWorkflowEndState), isTrue);
       expect(isWorkflowEndState('processing'), isFalse);
@@ -328,6 +335,19 @@ void main() {
       expect(results.single.status, 'cancelled');
       expect(results.single.sessionId, 'wf_session_1');
       expect(results.single.lastEvent, 'processing');
+      expect(find.byType(WorkflowWebView), findsNothing);
+    });
+
+    widgetTest('the widget\'s own Cancel closes the flow as a cancel with the last event',
+        (tester) async {
+      final c = (await open(tester))!;
+      post(c, message('processing'));
+      post(c, message('cancelled'));
+      await tester.pumpAndSettle();
+      expect(results.single.status, 'cancelled');
+      expect(results.single.sessionId, 'wf_session_1');
+      expect(results.single.lastEvent, 'processing');
+      expect(events.map((e) => e.type), contains('cancelled'));
       expect(find.byType(WorkflowWebView), findsNothing);
     });
 
