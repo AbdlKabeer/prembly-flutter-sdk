@@ -99,7 +99,7 @@ class _WorkflowWebViewState extends State<WorkflowWebView> {
     final scam = device.signals['scam_signals'];
     final alreadySeen = scam is Map && scam['is_screen_shared_or_recorded'] == true;
     _stopScreenWatch = startScreenWatch(
-      (state) => controller.runJavaScript(buildScreenUpdateScript(state)),
+      (state) => controller.runJavaScript(buildScreenUpdateScript(state, origin: _origin)),
       interval: widget.screenWatchEvery,
       alreadySeen: alreadySeen,
     );

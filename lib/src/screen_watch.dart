@@ -79,11 +79,11 @@ void Function() startScreenWatch(
 /// `window.__PREMBLY_NATIVE_DEVICE__`. It does nothing on any other origin or before the page has
 /// the data, and it tells the page (a `prembly:native-device-update` event) only when something
 /// changed.
-String buildScreenUpdateScript(ScreenCaptureState state) {
+String buildScreenUpdateScript(ScreenCaptureState state, {String origin = premblyWidgetOrigin}) {
   return '''(function () {
   try {
     var device = window.__PREMBLY_NATIVE_DEVICE__;
-    if (window.location.origin !== ${premblySafeJson(premblyWidgetOrigin)} || !device) return;
+    if (window.location.origin !== ${premblySafeJson(origin)} || !device) return;
     var signals = (device.signals = device.signals || {});
     var scam = (signals.scam_signals = signals.scam_signals || {});
     var changed =
